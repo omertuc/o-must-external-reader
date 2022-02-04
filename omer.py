@@ -12,7 +12,6 @@ os.chdir("gather")
 
 @app.route("/apis/authorization.k8s.io/v1/selfsubjectaccessreviews", methods=["POST"])
 def subject_access():
-    print(request.json)
     return app.response_class(
         response="""
         {
@@ -111,10 +110,10 @@ def api_cscoped_custom(group_version, _version, resource):
     cscoped_res_dir = Path("cluster-scoped-resources") / group_version / f"{resource}"
     if cscoped_res_dir.is_dir():
         resources = []
-        for res in cscoped_res_dir.iterdir():
+        for res, _ in zip(cscoped_res_dir.iterdir(), range(int(request.args.get("limit", "1000")))):
             try:
                 with res.open("rb") as f:
-                    resources.append(yaml.safe_load(f.read()))
+                    resources.append(yaml.load(f, Loader=yaml.CLoader))
             except Exception as e:
                 print(f"Failed to load {res} {e}")
                 pass
@@ -127,6 +126,9 @@ def api_cscoped_custom(group_version, _version, resource):
             },
             "items": resources
         }
+
+        with open("/tmp/resource_list.json", "w") as f:
+            json.dump(resource_list, f)
 
         return app.response_class(
             response=json.dumps(resource_list),
